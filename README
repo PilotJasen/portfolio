@@ -1,6 +1,8 @@
 Welcome to my personal GitHub Portfolio.
 
-The "domain" folder contains Microsoft PowerShell scripts to manage your on-prem Active Directory Server(s).
+The "azure" folder contains Microsoft PowerShell scripts to manage an Azure based enivronment.
+
+The "domain" folder contains Microsoft PowerShell scripts to manage an on-prem Active Directory Server(s).
 
 The "raspberry" folder contains bash scripts to manage the Raspberry Pi devices.
 
