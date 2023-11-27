@@ -1,1 +1,9 @@
-This repo contains a mix of PowerShell, bash, and python based scripts.
+Welcome to my personal GitHub Portfolio.
+
+The "domain" folder contains Microsoft PowerShell scripts to manage your on-prem Active Directory Server(s).
+
+The "raspberry" folder contains bash scripts to manage the Raspberry Pi devices.
+
+The "system" folder contains python scripts for Windows, Linux, or Unix based systems.
+
+Thank you for your consideration.
