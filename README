@@ -2,6 +2,8 @@ Welcome to my personal GitHub Portfolio.
 
 The "azure" folder contains Microsoft PowerShell scripts to manage an Azure based enivronment.
 
+The "docker" folder contains yaml compose files to create docker containers.
+
 The "domain" folder contains Microsoft PowerShell scripts to manage an on-prem Active Directory Server(s).
 
 The "raspberry" folder contains bash scripts to manage the Raspberry Pi devices.
