@@ -1,0 +1,47 @@
+###########################
+# NAME: Docker DesertRatz #
+# AUTHOR: DesertRatz      #
+# CREATED: 2024/11/22     #
+# (C) 2022-2025           #
+###########################
+
+services:
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      # Specify the ports needed to make Pi-hole work.
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "80:80/tcp"
+    environment:
+      # We will set the TZ here. Default is "America/Los_Angeles".
+      TZ: "America/Los_Angeles"
+      WEBPASSWORD:
+    tty: true
+    stdin_open: true
+    # Volumes store your data between container upgrades.
+    volumes:
+      - './etc-pihole:/data/compose/pihole'
+      - './etc-dnsmasq.d:/data/compose/dnsmasq.d'
+    # This determines the restart state for the container.
+    restart: always
+
+  heimdall:
+    container_name: heimdall
+    image: lscr.io/linuxserver/heimdall:latest
+    environment:
+      # We'll specify the user's PUID and PGID. The current value, 1000, represents the current user.
+      - PUID=1000
+      - PGID=1000
+      # We will set the TZ here. Default is "America/Los_Angeles".
+      - TZ: "America/Los_Angeles"
+    volumes:
+      # We'll set the volume(s) here.
+      - /data/portainer/heimdall/config:/config
+    ports:
+      # Change the ports as needed. If port(s) 80 or 443 are being used change it to this: 8080 | 8443.
+      - 80:80
+      - 443:443
+    # This determines the restart state for the container
+    restart: always

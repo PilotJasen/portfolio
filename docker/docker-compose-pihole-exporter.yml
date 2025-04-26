@@ -1,0 +1,34 @@
+###########################
+# NAME: Docker PiH Export #
+# AUTHOR: DesertRatz      #
+# CREATED: 2024/11/13     #
+# (C) 2022-2025           #
+###########################
+
+services:
+  pihole-exporter:
+    container_name: pihole-exporter
+    image: ekofr/pihole-exporter:latest
+    environment:
+      # Enter the IP or FQDN of the Pi device.
+      - PIHOLE_HOSTNAME=XXX.XXX.XXX.XXX
+      # Enter the password for the Pi device.
+      - PIHOLE_PASSWORD=ENTER_PASSWORD
+      # Enter a value in seconds (10 - 90).
+      - INTERVAL=30s
+      # Enter the port for the metrics.
+      - PORT=9617
+    ports:
+      - "9617:9617"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5k"
+        max-file: "5"
+    # healthcheck:
+      # # Change the 'localhost' to match your IP.
+      # test: ["CMD", "wget", "--tries=1", "--spider", "http://localhost:9617/metrics"]
+      # interval: 300s
+      # retries: 5
+      # timeout: 10s
+    restart: always

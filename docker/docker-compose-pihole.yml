@@ -1,0 +1,35 @@
+###########################
+# NAME: Docker Pihole     #
+# AUTHOR: DesertRatz      #
+# CREATED: 2024/07/12     #
+# (C) 2022-2025           #
+###########################
+
+services:
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      # DNS ports.
+      - "53:53/tcp"
+      - "53:53/udp"
+      # HTTP / HTTPS ports.
+      - "80:80/tcp"
+    environment:
+    # We will set the TZ here. Default is "America/Los_Angeles".
+      TZ: "America/Los_Angeles"
+    # We will set a password OR allow a random password here.
+      FTLCONF_webserver_api_password:
+    tty: true
+    stdin_open: true
+    # Volumes store your data between container upgrades.
+    volumes:
+      - pihole:/etc/pihole
+      - pihole:/etc/dnsmasq.d
+    cap_add:
+      - SYS_TIME
+      - SYS_NICE
+    # This determines the restart state for the container.
+    restart: always
+volumes:
+  pihole:
