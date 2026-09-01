@@ -1,0 +1,56 @@
+###########################
+# NAME: Docker Abassa     #
+# AUTHOR: DesertRatz      #
+# CREATED: 2026/04/09     #
+# (C) 2022-2026           #
+###########################
+
+services:
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:2026.07.2 # Current (2026-0707)
+    network_mode: host
+    restart: unless-stopped # This determines the restart state for the container
+    environment:
+      TZ: "America/Los_Angeles" # We will set the TZ here. Default is "America/Los_Angeles"
+      PIHOLE_UID: 1000 # Set to root if needed / default 1000
+      PIHOLE_GID: 1000 # Set to root if needed / default 1000
+      # We will set a password OR allow a random password here
+      FTLCONF_webserver_api_password:
+    tty: true
+    stdin_open: true
+    volumes: # Volumes store your data between container upgrades
+      - /data/docker/pihole/pihole:/etc/pihole # Config directory
+      - /data/docker/pihole/dnsmasq.d:/etc/dnsmasq.d # DNSmasq directory
+      - /etc/hostname:/etc/hostname:ro # Access the hostname
+    cap_add:
+      - SYS_NICE
+    deploy:
+      resources:
+        limits:
+          cpus: 2.0 # RPi5 cpu safe buffer
+          memory: 1g # RPi5 memory safe buffer
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  it-tools:
+    container_name: it-tools
+    image: corentinth/it-tools:2024.10.22-7ca5933 # Current (2024-1022)
+    ports:
+      - "8080:80" # We will map port 80 to the container and port 8080 to the host.
+    restart: unless-stopped # Docker safe method
+    volumes:
+      - /data/docker/it_tools
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5 # RPi5 cpu safe buffer
+          memory: 512m # RPi5 memory safe buffer
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

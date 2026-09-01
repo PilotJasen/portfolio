@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>PayloadContent</key>
+        <array>
+            <dict>
+                <key>AutoJoin</key>
+                <true />
+                <key>EncryptionType</key>
+                <string>SET_WPA_METHOD</string><!--Insert
+                WPA method (WPA2 or later)-->
+                <key>HIDDEN_NETWORK</key>
+                <false />
+                <key>Password</key>
+                <string>SET_WIFI_PASSWORD</string> <!--Insert
+                password. Cannot use B64 or salt-->
+                <key>PayloadDescription</key>
+                <string>Configures Wi-Fi settings</string>
+                <key>PayloadDisplayName</key>
+                <string>TheRiverRatz</string>
+                <key>PayloadIdentifier</key>
+                <string>com.domain.wifi.UUID_HERE_1</string> <!--Insert
+                random UUID and set the "com.domain." to your name-->
+                <key>PayloadType</key>
+                <string>com.apple.wifi.managed</string>
+                <key>PayloadUUID</key>
+                <string>UUID_HERE_1</string> <!--Insert
+                random UUID-->
+                <key>PayloadVersion</key>
+                <integer>1</integer>
+                <key>SSID_STR</key>
+                <string>Hogwarts</string>
+            </dict>
+        </array>
+        <key>PayloadDisplayName</key>
+        <string>TheRiverRatz-WiFi</string>
+        <key>PayloadIdentifier</key>
+        <string>com.domain.profile.UUID_HERE_2</string> <!--Insert
+        random UUID and set the "com.domain." to your name. Diff from UUID_..._1-->
+        <key>PayloadRemovalDisallowed</key>
+        <false />
+        <key>PayloadType</key>
+        <string>Configuration</string>
+        <key>PayloadUUID</key>
+        <string>UUID_HERE_2</string> <!--Insert
+        random UUID and set the "com.domain." to your name. Diff from UUID_..._1-->
+        <key>PayloadVersion</key>
+        <integer>1</integer>
+    </dict>
+</plist>

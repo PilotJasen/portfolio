@@ -1,0 +1,26 @@
+###########################
+# NAME: Prometheus ENV    #
+# AUTHOR: DesertRatz      #
+# CREATED: 2024/11/03     #
+# (C) 2022-2026           #
+###########################
+
+global:
+  # How often do we scrape the target(s)?
+  scrape_interval: 30s
+  # How often do we check the rules?
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: "docker"
+    static_configs:
+      - targets: ["XXX.XXX.XXX.XXX:9100"]
+
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["XXX.XXX.XXX.XXX:8080"]
+
+  - job_name: "pihole"
+    static_configs:
+      # Replace "targets: ['localhost:PORT']" with the node's IP.
+      - targets: ["XXX.XXX.XXX.XXX:9617"]

@@ -1,0 +1,58 @@
+###########################
+# NAME: Caddy Proxy       #
+# AUTHOR: DesertRatz      #
+# CREATED: 2026/07/20     #
+# (C) 2022-2026           #
+###########################
+
+services:
+    caddy:
+        container_name: caddy
+        image: caddy:2.11.4-alpine # Current (2026-0720)
+        restart: unless-stopped # Auto-restart on crash/reboot (Caddy's official docs)
+        network_mode: host
+        environment:
+            #TZ: "America/Los_Angeles" # We will set the TZ here. Default is "America/Los_Angeles"
+            TZ: ${TZ:-UTC}
+        security_opt:
+            - no-new-privileges:true
+        tty: true
+        stdin_open: true
+        volumes: # Volumes store your data between container upgrades
+            - /data/desertratz/proxy/config:/etc/caddy:ro # Caddy Proxy cfg directory
+            - /data/desertratz/proxy/data:/data # Caddy Proxy data directory
+            - /data/desertratz/proxy/config-runtime:/config # Caddy Proxy cfg-runtime directory
+            - /data/desertratz/proxy/logs:/var/log/caddy # Caddy Proxy log directory
+            - /data/desertratz/proxy/certs:/certs:ro # Caddy Proxy SSL/TLS directory
+            - /etc/hostname:/host/etc/hostname:ro # Caddy Proxy hostname file
+            - /etc/localtime:/etc/localtime:ro # Read host time
+            - /etc/timezone:/etc/timezone:ro # Read host timezone
+        cap_drop:
+            - ALL
+        cap_add:
+            - NET_ADMIN # Capabilities for network configurations
+            - NET_BIND_SERVICE # Required to bind privileged ports (80/443)
+            - NET_RAW # Allow raw socket operations
+            - SYS_NICE # Allow the container to play nice with host
+        deploy:
+            resources:
+                limits:
+                    cpus: "2" # Adjust as needed
+                    memory: 2048M # Adjust as needed
+                reservations:
+                    cpus: "2" # Adjust as needed
+                    memory: 2048M # Adjust as needed
+        healthcheck:
+            test:
+                - CMD
+                - caddy
+                - version
+            interval: 60s
+            timeout: 10s
+            retries: 3
+            start_period: 30s
+#        logging:
+#            driver: json-file
+#            options:
+#                max_size: "10m" # Adjust as needed
+#                max-files: "5" # Adjust as needed

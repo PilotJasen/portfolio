@@ -1,0 +1,73 @@
+###########################
+# NAME: Docker Exuma      #
+# AUTHOR: DesertRatz      #
+# CREATED: 2026/04/09     #
+# (C) 2022-2026           #
+###########################
+
+services:
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:2026.07.2 # Current (2026-0707)
+    network_mode: host
+    pid: host # Share host PID namespace so System Monitor sees real host processes, not just container-scoped ones
+    restart: unless-stopped # This determines the restart state for the container
+    environment:
+      TZ: "America/Los_Angeles" # We will set the TZ here. Default is "America/Los_Angeles"
+      PIHOLE_UID: 1000 # Set to root if needed / default 1000
+      PIHOLE_GID: 1000 # Set to root if needed / default 1000
+      # We will set a password OR allow a random password here
+      FTLCONF_webserver_api_password:
+    tty: true
+    stdin_open: true
+    volumes: # Volumes store your data between container upgrades
+      - /data/docker/pihole/pihole:/etc/pihole # Config directory
+      - /data/docker/pihole/dnsmasq.d:/etc/dnsmasq.d # DNSmasq directory
+      - /etc/hostname:/etc/hostname:ro # Access the hostname
+    cap_add:
+      - SYS_NICE
+    deploy:
+      resources:
+        limits:
+          cpus: 2.0 # RPi5 cpu safe buffer
+          memory: 1g # RPi5 memory safe buffer
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  homeassistant:
+    container_name: homeassistant
+    image: homeassistant/home-assistant:2026.8.1 # Current (2026-0810)
+    network_mode: host
+    #environment:
+      #TZ: America/Los_Angeles # Set the timezone
+      #DISABLE_JEMALLOC removed: jemalloc was replaced by mimalloc (now default, no action needed)
+    volumes:
+      - /data/desertratz/haos/ha/cfg:/config # Config directory
+      - /etc/localtime:/etc/localtime:ro # Sync timezone
+      - /etc/hostname:/etc/hostname:ro # Access the hostname
+      - /run/dbus:/run/dbus:ro # Obtain device info
+    cap_add:
+      - NET_ADMIN # Capabilities for network configurations
+      - NET_RAW # Allow raw socket operations
+      - SYS_NICE # Allow the container to play nice with host
+    restart: unless-stopped # Docker safe method
+    privileged: true # Set at own risk
+    deploy:
+      resources:
+        limits:
+          cpus: 3.0 # Leaves 1 core of headroom for pihole + host OS
+          memory: 4.5g # RPi5 8GB safe buffer, leaves room for OS + pihole
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", 'python3 -c "import socket; s=socket.create_connection((''127.0.0.1'', 9225), timeout=5); s.close()" || exit 1',] # Health check for container
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 3m # Give HA time to boot (integrations, frontend build) before failures count

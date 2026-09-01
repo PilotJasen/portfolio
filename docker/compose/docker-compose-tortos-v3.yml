@@ -1,0 +1,347 @@
+###########################
+# NAME: Docker Tortos     #
+# AUTHOR: DesertRatz      #
+# CREATED: 2026/08/21     #
+# (C) 2022-2026           #
+###########################
+
+version: "3.9"
+
+services:
+  cadvisor:
+    image: ghcr.io/google/cadvisor:0.60.5
+    container_name: cadvisor
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - "-logtostderr"
+      - "-docker_only"
+      - "--port=8080"
+    volumes:
+      - type: bind
+        source: /
+        target: /rootfs
+        read_only: true
+      - type: bind
+        source: /var/run
+        target: /var/run
+        read_only: true
+      - type: bind
+        source: /sys
+        target: /sys
+        read_only: true
+      - type: bind
+        source: /data/docker # Changed /var/lib/docker to /data/docker
+        target: /var/lib/docker # cAdvisor expects Docker root at /var/lib/docker
+        read_only: true
+      - type: bind
+        source: /dev/disk
+        target: /dev/disk
+        read_only: true
+    devices:
+      - /dev/kmsg # Required by cAdvisor to read kernel messages
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_PTRACE # Needed to inspect other processes/containers instead of running "--privileged"
+      - DAC_READ_SEARCH # Needed to read arbitrary files under the read-only bind mounts above
+    deploy:
+      resources:
+        limits:
+          cpus: "0.15" # Added safeguard to ensure container stays healthy
+          memory: 192M
+        reservations:
+          cpus: "0.05"
+          memory: 96M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  grafana:
+    user: "0" # Needs to be root to create directories
+    image: grafana/grafana:13.2.0 # Current (2026-0821)
+    container_name: grafana
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      GF_SERVER_PROTOCOL: "https" # Ensure runtime protocol matches grafana.ini
+      GF_SERVER_HTTP_ADDR: "0.0.0.0" # Binds to all addresses
+      GF_SERVER_HTTP_PORT: "3443"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - type: bind
+        source: /data/desertratz/grafana
+        target: /var/lib/grafana
+      - type: bind
+        source: /data/desertratz/cfg/grafana.ini
+        target: /etc/grafana/grafana.ini
+        read_only: true
+      - type: bind
+        source: /data/desertratz/cfg/certs
+        target: /etc/grafana/certs
+        read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50" # Increased from 0.3 to allow Grafana more CPU headroom
+          memory: 768M
+        reservations:
+          cpus: "0.15"
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -qO- https://127.0.0.1:3443/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  heimdall:
+    image: ghcr.io/linuxserver/heimdall:v2.8.2-ls361 # Current (2026-0821)
+    container_name: heimdall
+    restart: unless-stopped
+    environment:
+      PUID: "1000" # Set to root if needed. Default is 1000 (current user)
+      PGID: "1000" # Set to root if needed. Default is 1000 (current user)
+      TZ: "America/Los_Angeles" # Set the timezone
+    volumes:
+      - type: bind
+        source: /data/docker/heimdall
+        target: /config
+      - type: bind
+        source: /etc/localtime
+        target: /etc/localtime
+        read_only: true
+    ports:
+      - "7080:80"
+      - "7443:443"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25" # cpu safe buffer
+          memory: 256M # memory safe buffer
+        reservations:
+          cpus: "0.05"
+          memory: 128M
+
+  minecraft:
+    image: itzg/minecraft-server:2026.8.2 # Current (2026-0826)
+    container_name: minecraft
+    restart: "no" # Keeps the container stopped after an in-container stop command
+    network_mode: host # Bind to itself
+    environment:
+      MEMORY: "6G"
+      EULA: "TRUE"
+      USE_AIKAR_FLAGS: "TRUE"
+      TZ: "America/Los_Angeles"
+      JVM_DD_OPTS: "-Dfile.encoding=UTF-8 -XX:+UnlockDiagnosticVMOptions -XX:G1NewCollectionHeuristicWeight=20 -XX:MaxGCPauseMillis=50 -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch"
+      NOGUI: "TRUE"
+      SYNC_CHUNK_WRITES: "FALSE"
+      SPAWN_PROTECTION: "0" # Adjust as needed
+      VIEW_DISTANCE: "10" # Balanced for fewer than 5 players
+      SIMULATION_DISTANCE: "6" # Lowered to reduce unnecessary entity ticking
+      MAX_PLAYERS: "5" # Adjust as needed
+    tty: true
+    stdin_open: true
+    volumes:
+      - type: bind
+        source: /data/docker/mc
+        target: /data
+      - type: bind
+        source: /etc/localtime
+        target: /etc/localtime
+        read_only: true
+    cap_add:
+      - SYS_NICE
+      - IPC_LOCK
+    deploy:
+      resources:
+        limits:
+          cpus: "2.50" # Allows Minecraft CPU headroom without dominating the 4-core CPU
+          memory: 8G # Leaves approximately 2G above the Java heap for JVM/native overhead
+        reservations:
+          cpus: "1.50" # Keeps reasonable CPU availability for the Minecraft server
+          memory: 4G
+    stop_grace_period: 120s # Add a grace period
+    stop_signal: SIGTERM # Docker default method (graceful termination signal)
+
+  node-exporter:
+    image: prom/node-exporter:v1.12.1 # Current (2026-0808)
+    container_name: nodeexporter
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - "--path.sysfs=/host/sys"
+      - "--path.procfs=/host/proc"
+      - "--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)"
+      - "--no-collector.ipvs"
+      - "--web.listen-address=0.0.0.0:9100"
+    volumes:
+      - type: bind
+        source: /
+        target: /rootfs
+        read_only: true
+      - type: bind
+        source: /proc
+        target: /host/proc
+        read_only: true
+      - type: bind
+        source: /sys
+        target: /host/sys
+        read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true # Node-Exporter's own fs doesn't need to be writable
+    deploy:
+      resources:
+        limits:
+          cpus: "0.05"
+          memory: 96M
+        reservations:
+          cpus: "0.02"
+          memory: 48M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:2026.07.2 # Current (2026-0707)
+    network_mode: host
+    restart: unless-stopped # This determines the restart state for the container
+    environment:
+      TZ: "America/Los_Angeles" # We will set the TZ here. Default is "America/Los_Angeles"
+      PIHOLE_UID: "1000" # Set to root if needed / default 1000
+      PIHOLE_GID: "1000" # Set to root if needed / default 1000
+      FTLCONF_webserver_api_password:
+    tty: true
+    stdin_open: true
+    volumes: # Volumes store your data between container upgrades
+      - type: bind
+        source: /data/docker/pihole/pihole
+        target: /etc/pihole
+      - type: bind
+        source: /data/docker/pihole/dnsmasq.d
+        target: /etc/dnsmasq.d
+      - type: bind
+        source: /etc/hostname
+        target: /etc/hostname
+        read_only: true
+      - type: bind
+        source: /etc/localtime
+        target: /etc/localtime
+        read_only: true
+    cap_add:
+      - SYS_NICE
+    deploy:
+      resources:
+        limits:
+          cpus: "1.50" # Increased for VIP DNS and web-interface headroom
+          memory: 1G # Increased for VIP instance workload and burst capacity
+        reservations:
+          cpus: "0.50"
+          memory: 384M
+    healthcheck:
+      test: ["CMD", "dig", "@127.0.0.1", "pi.hole"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  pihole-exporter:
+    image: ekofr/pihole-exporter:v1.2.0 # Current (2026-0811)
+    container_name: piholeexporter
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - /data/desertratz/cfg/pihole.env
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.05"
+          memory: 64M
+        reservations:
+          cpus: "0.01"
+          memory: 16M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  prometheus:
+    user: "0" # Needs to be root to create directories
+    image: prom/prometheus:v3.14.0 # Current (2026-0821)
+    container_name: prometheus
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--log.level=error"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=10d"
+      - "--web.enable-lifecycle"
+      - "--web.listen-address=0.0.0.0:9091"
+    volumes:
+      - type: bind
+        source: /data/desertratz/prometheus
+        target: /prometheus
+      - type: bind
+        source: /data/desertratz/prometheus/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "0.60" # Increased from 0.5 to allow Prometheus more CPU headroom
+          memory: 1536M # Reduced to leave more RAM for the OS
+        reservations:
+          cpus: "0.20"
+          memory: 384M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9091/-/healthy >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

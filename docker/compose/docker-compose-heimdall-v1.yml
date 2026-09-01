@@ -1,0 +1,21 @@
+###########################
+# NAME: Heimdall          #
+# AUTHOR: DesertRatz      #
+# CREATED: 2026/06/05     #
+# (C) 2022-2026           #
+###########################
+
+services:
+  heimdall:
+    image: ghcr.io/linuxserver/heimdall:v2.7.6-ls351 # Current (2026-0626)
+    container_name: heimdall
+    environment:
+      PUID: 1000 # Set to root if needed. Default is 1000 (current user)
+      PGID: 1000 # Set to root if needed. Default is 1000 (current user)
+      TZ: "America/Los_Angeles" # Set the timezone
+    volumes:
+      - /data/docker/heimdall:/config
+    ports:
+      - 7080:80
+      - 7443:443
+    restart: unless-stopped

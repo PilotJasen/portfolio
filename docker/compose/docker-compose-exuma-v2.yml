@@ -1,0 +1,88 @@
+###########################
+# NAME: Docker Exuma      #
+# AUTHOR: DesertRatz      #
+# CREATED: 2026/04/09     #
+# (C) 2022-2026           #
+###########################
+
+version: '3.9'
+
+services:
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:2026.07.2 # Current (2026-0707)
+    network_mode: host
+    pid: host # Share host PID namespace so System Monitor sees real host processes, not just container-scoped ones
+    restart: unless-stopped # This determines the restart state for the container
+    environment:
+      TZ: "America/Los_Angeles" # We will set the TZ here. Default is "America/Los_Angeles"
+      PIHOLE_UID: 1000 # Set to root if needed / default 1000
+      PIHOLE_GID: 1000 # Set to root if needed / default 1000
+      # We will set a password OR allow a random password here
+      FTLCONF_webserver_api_password:
+    tty: true
+    stdin_open: true
+    volumes: # Volumes store your data between container upgrades
+      - /data/docker/pihole/dnsmasq.d:/etc/dnsmasq.d # DNSmasq directory
+      - /data/docker/pihole/pihole:/etc/pihole # Config directory
+      - /etc/hostname:/etc/hostname:ro # Access the hostname
+      - /etc/localtime:/etc/localtime:ro # Sync system timezone
+    cap_add:
+      - SYS_NICE
+    healthcheck:
+      test: ["CMD", "dig", "@127.0.0.1", "pi.hole"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: 2.0 # RPi5 cpu safe buffer
+          memory: 1g # RPi5 memory safe buffer
+        reservations:
+          cpus: 1.0 # Reserve 1 CPU for Pi-hole baseline
+          memory: 512M # Reserve 512MB baseline
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  homeassistant:
+    container_name: homeassistant
+    image: homeassistant/home-assistant:2026.8.1 # Current (2026-0810)
+    network_mode: host
+    volumes:
+      - /data/desertratz/haos/ha/cfg:/config # Config directory
+      - /data/dev:/data/dev:ro # Custom script directory
+      - /etc/hostname:/etc/hostname:ro # Access the hostname
+      - /etc/localtime:/etc/localtime:ro # Sync timezone
+      - /proc:/host/proc:ro # Access the proc info
+      - /run/dbus:/host/run/dbus:ro # Obtain device info
+      - /sys:/host/sys:ro # Access the sys info
+    cap_add:
+      - NET_ADMIN # Capabilities for network configurations
+      - NET_RAW # Allow raw socket operations
+      - SYS_NICE # Allow the container to play nice with host
+    restart: unless-stopped # Docker safe method
+    privileged: true # Set at own risk
+    healthcheck:
+      test: ["CMD-SHELL", 'python3 -c "import socket; s=socket.create_connection((''127.0.0.1'', 9225), timeout=5); s.close()" || exit 1']
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 3m # Give HA time to boot (integrations, frontend build) before failures count
+    deploy:
+      resources:
+        limits:
+          cpus: 3.0 # Leaves 1 core of headroom for pihole + host OS
+          memory: 4.0g # RPi5 8GB safe buffer, leaves room for OS + pihole
+        reservations:
+          cpus: 2.0 # Reserve 2 CPUs for HA baseline
+          memory: 3.0g # Reserve 3GB baseline for stability
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

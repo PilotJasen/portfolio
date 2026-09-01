@@ -1,0 +1,11 @@
+[Unit]
+Description=Auto start VMs
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/auto_start_vm.sh
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target

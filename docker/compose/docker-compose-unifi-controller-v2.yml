@@ -1,0 +1,61 @@
+###########################
+# NAME: Docker UniFi      #
+# AUTHOR: DesertRatz      #
+# CREATED: 2026/04/11     #
+# (C) 2022-2026           #
+###########################
+
+service:
+  mongo:
+    image: mongo:8.2.6 # Current (2026-0411)
+    container_name: mongo # Container name
+    restart: always # Always restart the container
+    networks:
+      - unifi
+    volumes:
+      - /data/desertratz/unifi/mongo/db # Mongo DB directory
+      - /data/desertratz/unifi/mongo/configdb # Mongo DB config directory
+  controller:
+    image: jacobalberty/unifi:v10.0.162 # Current (2026-0411)
+    container_name: unifi_controller # Container name
+    restart: always # Always restart the container
+    depends_on: # Container depends on
+      - mongo
+    init: true
+    networks:
+      - unifi
+    volumes:
+      - /data/desertratz/unifi # UniFi directory
+      - /data/desertratz/unifi/data # UniFi data directory
+      - /data/desertratz/unifi/logs # UniFi logs directory
+      - /data/desertratz/unifi/ssl # UniFi ssl directory
+      - /data/desertratz/unifi/init.d # UniFi init.d directory
+      - /data/desertratz/unifi/run:/var/run/unifi # UniFi run directory
+      - /data/desertratz/unifi/data/backup # UniFi backup directory
+    user: unifi # Change as needed
+    sysctrls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    environment:
+      DB_URI: mongodb://mongo/unifi
+      STATDB_URI: mongodb://mongo/unifi_stat
+      DB_NAME: unifiDB
+    ports:
+      - "3478:3478/udp" # STUN port
+      - "6789:6789/tcp" # Speed test port
+      - "8080:8080/tcp" # Device/controller comm port
+      - "9443:9443/tcp" # UniFi Controller Portal (Change as needed)
+      - "8880:8880/tcp" # HTTP portal redirection
+      - "8843:8843/tcp" # HTTPS portal redirection
+      - "10001:10001/tcp" # UniFi AP discovery port
+    logs:
+      image: bash
+      container_name: unifi_logs # Container name
+      restart: always # Always restart the container
+      depends_on: # Container depends on
+        - controller
+      command: bash -c 'tail -F /unifi/log/*.log'
+      volumes:
+        - /data/desertratz/unifi/logs # UniFi logs directory
+
+  networks:
+    unifi:

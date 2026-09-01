@@ -1,0 +1,152 @@
+###########################
+# NAME: Docker Tortos     #
+# AUTHOR: DesertRatz      #
+# CREATED: 2026/04/09     #
+# (C) 2022-2026           #
+###########################
+
+services:
+  heimdall:
+    image: ghcr.io/linuxserver/heimdall:v2.8.1-ls358 # Current (2026-0812)
+    container_name: heimdall
+    restart: unless-stopped
+    environment:
+      PUID: 1000 # Set to root if needed. Default is 1000 (current user)
+      PGID: 1000 # Set to root if needed. Default is 1000 (current user)
+      TZ: "America/Los_Angeles" # Set the timezone
+    volumes:
+      - /data/docker/heimdall:/config:rw # Heimdall cfg directory
+      - /etc/localtime:/etc/localtime:ro # Sync time
+    ports:
+      - 7080:80
+      - 7443:443
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50" # cpu safe buffer
+          memory: 512M # memory safe buffer
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:2026.07.2 # Current (2026-0707)
+    network_mode: host
+    restart: unless-stopped # This determines the restart state for the container
+    environment:
+      TZ: "America/Los_Angeles" # We will set the TZ here. Default is "America/Los_Angeles"
+      PIHOLE_UID: 1000 # Set to root if needed / default 1000
+      PIHOLE_GID: 1000 # Set to root if needed / default 1000
+      # We will set a password OR allow a random password here
+      FTLCONF_webserver_api_password:
+    tty: true
+    stdin_open: true
+    volumes: # Volumes store your data between container upgrades
+      - /data/docker/pihole/pihole:/etc/pihole # Config directory
+      - /data/docker/pihole/dnsmasq.d:/etc/dnsmasq.d # DNSmasq directory
+      - /etc/hostname:/etc/hostname:ro # Access the hostname
+    cap_add:
+      - SYS_NICE
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0" # cpu safe buffer
+          memory: 1g # memory safe buffer
+        reservations:
+          cpus: "1.0"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "dig", "@127.0.0.1", "pi.hole"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  minecraft:
+    image: itzg/minecraft-server:2026.8.0 # Current (2026-0804)
+    container_name: minecraft
+    network_mode: host # Bind to itself
+    environment:
+      MEMORY: "10G"
+      EULA: "TRUE"
+      USE_AIKAR_FLAGS: "TRUE"
+      TZ: "America/Los_Angeles"
+      JVM_DD_OPTS: "-Dfile.encoding=UTF-8 -XX:+UnlockDiagnosticVMOptions -XX:G1NewCollectionHeuristicWeight=20 -XX:MaxGCPauseMillis=50 -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch"
+      NOGUI: "TRUE"
+      SYNC_CHUNK_WRITES: "FALSE"
+      SPAWN_PROTECTION: "0" # Adjust as needed
+      VIEW_DISTANCE: "12" # Balanced for i7-4770
+      SIMULATION_DISTANCE: "8" # Adjust as needed
+      MAX_PLAYERS: "10" # Adjust as needed
+    tty: true
+    stdin_open: true
+    volumes:
+      - /data/docker/mc:/data:rw # Minecraft data directory
+      - /etc/localtime:/etc/localtime:ro # Set localtime
+    cap_add:
+      - SYS_NICE
+      - IPC_LOCK
+    deploy:
+      resources:
+        limits:
+          cpus: "2" # Adjust as needed
+          memory: 10G # Adjust as needed
+        reservations:
+          cpus: "2" # Adjust as needed
+          memory: 4G # Adjust as needed
+    restart: on-failure # Adjust as needed (default: on-failure)
+    stop_grace_period: 120s # Add a grace period
+    stop_signal: SIGTERM # Docker default method (graceful termination signal)
+
+  netalertx:
+    image: ghcr.io/netalertx/netalertx:26.8.5 # Current (2026-0805)
+    container_name: netalertx
+    restart: unless-stopped # Restart unless manually stopped (safer than "always", which fights a deliberate `docker stop`)
+    network_mode: host # Required for ARP/L2 scanning - also means this shares the host's network stack with your other containers
+    read_only: true # Read-only root filesystem; all writable state goes through /data and the tmpfs below
+    cap_drop:
+      - "ALL" # Drop everything, then add back only what's required
+    cap_add:
+      - "NET_ADMIN" # Required for ARP scanning
+      - "NET_RAW" # Required for raw sockets (nmap, arp-scan)
+      - "NET_BIND_SERVICE" # Required to bind low ports (nbtscan, etc.)
+      - "CHOWN" # Required by the image's root-entrypoint to chown /data + /tmp before dropping privileges
+      - "SETUID" # Required by root-entrypoint to switch to the non-root service user
+      - "SETGID"
+    security_opt:
+      - "no-new-privileges:true"
+    environment:
+      - LISTEN_ADDR=0.0.0.0 # Listen on all interfaces
+      - PORT=20211 # Application port
+      - GRAPHQL_PORT=20212 # GraphQL API port
+      - ALWAYS_FRESH_INSTALL=false # Set to true to reset your cfg/db directories
+      - PUID=20211
+      - PGID=20211
+    volumes:
+      - /data/desertratz/netalertx/data:/data:rw # NetAlertX data directory (must contain /db and /config subfolders)
+      - /etc/localtime:/etc/localtime:ro # Sync time from host to container (replaces the old TZ= env var, which NetAlertX removed)
+      - /data/desertratz/netalertx/log:/tmp/log:rw # NetAlertX log directory
+    tmpfs:
+      - /tmp:uid=20211,gid=20211,mode=1700,rw,noexec,nosuid,nodev,size=512m
+    shm_size: "256mb"
+    mem_limit: 768m
+    mem_reservation: 256m
+    cpu_shares: 512 # Half of Docker's default (1024) weight
+    pids_limit: 256 # Guards against a runaway scan/fork storm affecting the rest of the host
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/20211' || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 120s # Initial ARP/nmap discovery can take several minutes
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,100 @@
+###########################
+# NAME: Docker UniFi      #
+# AUTHOR: DesertRatz      #
+# CREATED: 2024/03/17     #
+# (C) 2022-2026           #
+###########################
+
+services:
+  unifi-db:
+    image: mongo:8.0 # Current (2026-0320)
+    container_name: unifi-db
+    restart: always # Always restart the container
+    environment:
+      TZ: America/Los_Angeles # Change as needed
+      MONGO_INITDB_ROOT_USERNAME: unifi # Database username
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /data/secrets/mongodb_pass # Database secret file
+      MONGO_INITDB_DATABASE: unifi # Database name
+    secrets:
+      - mongodb_pass
+    volumes:
+      - /data/docker/unifi/mongo/data:/data/db # MongoDB directory
+      - /data/docker/unifi/mongo/configdb:/data/configdb # MongoDB config directory
+      - /.init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh:ro
+    ports:
+      - "27017:27017" # MongoDB ports
+    networks:
+      - unifi-network # Change as needed
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: "2G"
+        reservations:
+          cpus: "1"
+          memory: "1G"
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  unifi-network-app:
+    image: lscr.io/linuxserver/unifi-network-application:10.1.89-ls121 # Current (2026-0320)
+    container_name: unifi-network-app
+    restart: always # Always restart the container
+    depends_on:
+      unifi-db:
+        condition: service_healthy
+    environment:
+      - PUID=1000 # Standard Linux user
+      - PGID=1000 # Standard Linux group
+      - TZ=America/Los_Angeles # Change as needed
+      - MONGO_USER=unifi # MongoDB username
+      - MONGO_PASS_FILE=/data/secrets/mongodb_pass # MongoDB secret file
+      - MONGO_HOST=unifi-db
+      - MONGO_PORT=27017 # MongoDB port(s)
+      - MONGO-DBNAME=unifi # MongoDB database name
+      - MONGO_AUTHSOURCE=admin # MongoDB auth source
+      - MEM_LIMIT=1024
+      - MEM_STARTUP=1024
+    secrets:
+      - mongo_unifi_pass # Mongo UniFi password
+    volumes:
+      - /data/docker/unifi/cfg:/config # UniFi config directory
+      - /data/docker/unifi/logs:/config/logs # UniFi logs directory
+      - /data/docker/unifi/ssl:/config/unifi/data/unifi-core/config/unifi-https.pem:ro
+    ports:
+      - "8443:8443" # UniFi UI
+      - "3478:3478/udp" # UniFi device adoption port
+      - "10001:10001/udp" # UniFi throughput measurement port
+      - "8080:8080" # UniFi HTTP redirect port
+      - "1900:1900/udp" # UniFi mDNS discovery port
+      - "8843:8843" # UniFi HTTPS alt port
+      - "8880:8880" # UniFi HTTP alt port
+      - "6789:6789" # UniFi Guest HTTPS port
+      - "5514:5514/udp" # UniFi syslog port
+    networks:
+      - unifi-network # Change as needed
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: "2G"
+        reservations:
+          cpus: "1"
+          memory: "1G"
+    healthcheck:
+      test: curl -k https://localhost:8443/api/system/information || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  unifi-network:
+    driver: bridge
+secrets:
+  mongodb_pass:
+    file: ./secrets/mongodb_pass.txt
+  mongo_unifi_pass:
+    file: ./secrets/mongo_unifi_pass.txt

@@ -1,0 +1,110 @@
+###########################
+# NAME: Docker Magneto    #
+# AUTHOR: DesertRatz      #
+# CREATED: 2026/08/30     #
+# (C) 2022-2026           #
+###########################
+
+services:
+  postgres:
+    image: postgres:17-alpine # Current (2026-0830)
+    container_name: postgres # Container name for the PostgreSQL service
+    restart: unless-stopped # Restart policy to ensure the container restarts unless stopped manually
+    network_mode: host # Use the host network mode for better performance and compatibility
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER} # Set the PostgreSQL user from the environment variable
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} # Set the PostgreSQL password from the environment variable
+      POSTGRES_DB: ${POSTGRES_DB} # Set the PostgreSQL database name from the environment variable
+      PGPORT: ${PGPORT} # Set the PostgreSQL port from the environment variable
+    command: ["postgres", "-c", "listen_addresses=127.0.0.1"]
+    volumes:
+      - /data/desertratz/postgresql:/var/lib/postgresql/data # Mount the host directory to persist PostgreSQL data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s # Check the health of the PostgreSQL service every 10 seconds
+      timeout: 5s # Set the timeout for the health check to 5 seconds
+      retries: 5 # Retry the health check 5 times before marking the service as unhealthy
+      start_period: 30s # Allow a 30-second startup period before starting health checks
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0' # Limit the CPU usage of the PostgreSQL container to 1 CPU
+          memory: 512M # Limit the memory usage of the PostgreSQL container to 512MB
+        reservations:
+          cpus: '0.5' # Reserve 0.5 CPU for the PostgreSQL container
+          memory: 256M # Reserve 256MB of memory for the PostgreSQL container
+    logging:
+      driver: "json-file" # Use the JSON file logging driver
+      options:
+        max-size: "10m" # Limit the maximum size of log files to 10MB
+        max-file: "3" # Keep a maximum of 3 log files
+
+  daemon:
+    image: ghcr.io/scanopy/scanopy/daemon:v0.17.13 # Current (2026-0830)
+    container_name: scanopy-daemon # Container name for the Scanopy daemon service
+    restart: unless-stopped # Restart policy to ensure the container restarts unless stopped manually
+    network_mode: host # Use the host network mode for better performance and compatibility
+    privileged: true # Run the container in privileged mode for full access to the host system
+    environment:
+      SCANOPY_LOG_LEVEL: ${SCANOPY_LOG_LEVEL:-info} # Set the Scanopy log level from the environment variable
+      SCANOPY_SERVER_URL: ${SCANOPY_SERVER_URL:-http://127.0.0.1:60072} # Set the Scanopy server URL from the environment variable
+    volumes:
+      - /data/desertratz/scanopy/daemon:/root/.config/scanopy/daemon # Mount the host directory to persist Scanopy data
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Mount the Docker socket for container management
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:60073/api/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 512M
+        reservations:
+          cpus: '1.0'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  server:
+    image: ghcr.io/scanopy/scanopy/server:v0.17.13 # Current (2026-0830)
+    container_name: scanopy-server # Container name for the Scanopy server service
+    restart: unless-stopped # Restart policy to ensure the container restarts unless stopped manually
+    network_mode: host # Use the host network mode for better performance and compatibility
+    environment:
+      SCANOPY_LOG_LEVEL: ${SCANOPY_LOG_LEVEL:-info} # Set the Scanopy log level from the environment variable
+      SCANOPY_DATABASE_URL: ${SCANOPY_DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}} # Set the Scanopy database URL from the environment variable
+      SCANOPY_WEB_EXTERNAL_PATH: ${SCANOPY_WEB_EXTERNAL_PATH:-/} # Set the Scanopy web external path from the environment variable
+      SCANOPY_PUBLIC_URL: ${SCANOPY_PUBLIC_URL:-http://127.0.0.1:60072} # Set the Scanopy public URL from the environment variable
+      SCANOPY_INTEGRATED_DAEMON_URL: ${SCANOPY_INTEGRATED_DAEMON_URL:-http://127.0.0.1:60073} # Set the Scanopy integrated daemon URL from the environment variable
+    volumes:
+      - /data/desertratz/scanopy/data:/data # Mount the host directory to persist Scanopy data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      daemon:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:60072/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 512M
+        reservations:
+          cpus: '1.0'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

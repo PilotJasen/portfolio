@@ -1,0 +1,17 @@
+[Unit]
+Description=Start Proxmox VMs
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/auto-start-vm.sh
+Restart=on-failure
+RestartSec=10s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=proxmox-vm-start
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,36 @@
+############################
+# NAME: PostgreSQL Upgrade #
+# AUTHOR: DesertRatz       #
+# CREATED: 2026/01/23      #
+# (C) 2022-2026            #
+############################
+
+Run the following commands as root
+
+1: sudo docker exec -it scanopy-postgres-1 pg_dumpall -U postgres > $HOSTNAME_postgresSQL.sql
+    01: This will create a copy of the PostgreSQL DB. Verify the directory before running.
+
+2: sudo docker compose down
+    01: To bring the containers down.
+
+3: Rename the "db" directory to "db_".
+
+4: Edit the YML and update postgres to the latest Alpine release.
+    01: postgres:18.1-alpine (2026-0123).
+
+5: Create a new "db" directory.
+
+6: sudo docker compose up -d postgres
+    01: To bring the DB server online.
+
+7: sudo cat backup.sql | sudo docker exec -i scanopy-postgres-1 psql -U postgres
+    01: To restore the DB from the backup.
+
+8: sudo docker exec -it scanopy-postgres-1 psql -U postgres -c 'SELECT version();'
+    01: To verify the version.
+
+9: sudo docker compose up -d
+    01: To bring the containers online.
+
+10: sudo rm -rf db_
+    01: Remove the old DB directory.

@@ -1,0 +1,44 @@
+###########################
+# NAME: Docker Minecraft  #
+# AUTHOR: DesertRatz      #
+# CREATED: 2026/05/26     #
+# (C) 2022-2026           #
+###########################
+
+services:
+  minecraft:
+    image: itzg/minecraft-server:2026.8.0 # Current (2026-0804)
+    container_name: minecraft
+    network_mode: host # Bind to itself
+    environment:
+      MEMORY: "10G"
+      INITIAL_MEMORY: "5G"
+      EULA: "TRUE"
+      USE_AIKAR_FLAGS: "TRUE"
+      TZ: "America/Los_Angeles"
+      JVM_DD_OPTS: "-Dfile.encoding=UTF-8 -XX:+UnlockDiagnosticVMOptions -XX:G1NewCollectionHeuristicWeight=20 -XX:MaxGCPauseMillis=50 -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch"
+      NOGUI: "TRUE"
+      SYNC_CHUNK_WRITES: "FALSE"
+      SPAWN_PROTECTION: "0" # Adjust as needed
+      VIEW_DISTANCE: "12" # Balanced for i7-4770
+      SIMULATION_DISTANCE: "8" # Adjust as needed
+      MAX_PLAYERS: "10" # Adjust as needed
+    tty: true
+    stdin_open: true
+    volumes:
+      - /data/docker/mc:/data:rw # Minecraft data directory
+      - /etc/localtime:/etc/localtime:ro # Set localtime
+    cap_add:
+      - SYS_NICE
+      - IPC_LOCK
+    deploy:
+      resources:
+        limits:
+          cpus: "2" # Adjust as needed
+          memory: 10G # Adjust as needed
+        reservations:
+          cpus: "2" # Adjust as needed
+          memory: 10G # Adjust as needed
+    restart: on-failure # Adjust as needed (default: on-failure)
+    stop_grace_period: 120s # Add a grace period
+    stop_signal: SIGTERM # Docker default method (graceful termination signal)
