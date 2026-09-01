@@ -1,9 +1,7 @@
 Welcome to my personal GitHub Portfolio.
 
-The "docker" folder contains yaml compose files to create docker containers.
+This repo contains sample files I created with the help of Google, Claude AI, and Duck AI/
 
-The "domain" folder contains Microsoft PowerShell scripts to manage an on-prem Active Directory Server(s).
-
-The "raspberry" folder contains bash scripts to manage the Raspberry Pi devices.
+All personal info has been removed from the scripts. 
 
 Thank you for your consideration.
